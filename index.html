@@ -81,6 +81,9 @@ h2{font-size:24px;font-weight:300;letter-spacing:8px}
 .card:hover{transform:translateY(-6px)!important;border-color:#fff;box-shadow:0 0 26px var(--cc,rgba(255,255,255,.35))}
 .card.tech{border-color:#5ef2ff}
 .card.skill{border-color:var(--cc,#ffd98a)}
+.card.relic{border-color:#f0b8ff;background:linear-gradient(180deg,rgba(40,22,56,.95),rgba(8,8,24,.95))}
+.card.relic .tag{color:#f0b8ff}
+#hRelics{font-size:11px;color:#f0b8ff;margin-top:6px;max-width:260px;line-height:1.5}
 @keyframes cin{0%{opacity:0;transform:translateY(34px)}100%{opacity:1;transform:translateY(0)}}
 .card .tag{font-size:10px;letter-spacing:2px;color:#8fb4d8}
 .card.tech .tag{color:#5ef2ff}
@@ -114,7 +117,7 @@ h2{font-size:24px;font-weight:300;letter-spacing:8px}
 <body class="play">
 <canvas id="cv"></canvas>
 <div id="hud" class="hide">
-  <div id="hTL"><div id="hDepth" class="num">0 m</div><div id="hZone"></div><div id="hKills" class="num"></div></div>
+  <div id="hTL"><div id="hDepth" class="num">0 m</div><div id="hZone"></div><div id="hKills" class="num"></div><div id="hRelics"></div></div>
   <div id="hTC">
     <div id="hLvRow"><span id="hLv" class="num">LV 1</span><div class="bar" id="hLumBar"><i id="hLumFill"></i></div></div>
     <div id="hBoss" class="hide"><div id="hBossName">리바이어던 LEVIATHAN</div><div class="bar" id="hBossBar"><i id="hBossFill"></i></div></div>
@@ -169,6 +172,8 @@ const CONFIG={
     current:{cd:7,jumps:8,range:130,dmg:3,gap:0.035,hvJumps:14,hvRange:170,dblDelay:0.2,dblMul:0.6,autoCd:4,autoJumps:6,autoRange:260},
     mael:{cd:20,dur:2.6,r:150,cr:120,dmg:10,bigR:1.3,bigDur:3.6,crushTick:0.3,crushDmg:0.5,crushPer:0.04,crushMax:2,twinAt:1.5,twinMul:1.4,pull:520},
     prism:{cd:15,width:26,dmg:7,warn:0.12,show:0.35,crossR:60,crossMul:2,afterDelay:0.5,afterMul:0.7,sweepT:1.2,sweepHit:0.3}},
+  RELIC:{heartMax:40,heartHeal:3,twinMul:0.5,hungryPer:0.002,hungryMax:1,glassDmg:1.6,glassLantern:0.5,chronoCd:0.7,gillLum:1.4,gillBuff:2,echoChance:0.35,
+    starCd:4,starN:5,starR:50,starDmg:6,eyeMul:1.5,eyeHeal:10,overN:10,overDmg:3,overR:2,ward:0.7},
   SHAKE:{max:10,decay:1.6,skill:0.25,devourer:0.5},
   FLASH:{max:0.3,boss:0.6},
   AUDIO:{lp:3200,lpLow:1200,voices:10,master:0.8},
@@ -248,6 +253,20 @@ const FUSIONS={
   'current+prism':{name:'전광 격자',en:'LIGHTNING LATTICE',color:'#bfe6ff',desc:'가로 5줄, 세로 6줄의 전류 광선이 차례로 화면 전체를 가른다.'},
   'mael+prism':{name:'사건의 지평선',en:'EVENT HORIZON',color:'#d9c8ff',desc:'화면 전체를 끌어당기는 소용돌이에서 회전 광선이 뻗어 나오고, 끝에 붕괴한다.'}
 };
+const RELIC_COL='#f0b8ff';
+const RELICS=[
+  {id:'heart',name:'심해의 심장',en:'ABYSSAL HEART',desc:'최대 등불 +40, 즉시 +40. 레벨업 회복량 +3.',on(){const R=CONFIG.RELIC;run.lanternMax+=R.heartMax;run.lantern+=R.heartMax;}},
+  {id:'twin',name:'쌍둥이 등불',en:'TWIN LANTERN',desc:'화면 중심 맞은편에 그림자 등불이 생겨, 클릭 펄스가 50% 피해로 함께 터진다.'},
+  {id:'hungry',name:'굶주린 빛',en:'HUNGRY LIGHT',desc:'획득 이후 처치할 때마다 모든 피해 +0.2% (최대 +100%).'},
+  {id:'glass',name:'유리 대포',en:'GLASS CANNON',desc:'모든 피해 ×1.6. 대신 최대 등불이 절반이 된다.',on(){const R=CONFIG.RELIC;run.lanternMax=Math.max(10,Math.round(run.lanternMax*R.glassLantern));run.lantern=Math.min(run.lantern,run.lanternMax);}},
+  {id:'chrono',name:'시간의 모래',en:'CHRONO SAND',desc:'모든 스킬과 융합 스킬의 쿨타임 −30%.'},
+  {id:'gill',name:'황금 아가미',en:'GOLDEN GILL',desc:'루멘 획득 +40%. 진주조개 버프 지속 시간 2배.'},
+  {id:'echo',name:'메아리 조개',en:'ECHO SHELL',desc:'스킬을 쓰면 35% 확률로 쿨타임이 즉시 초기화된다.'},
+  {id:'star',name:'별의 파편',en:'STAR SHARD',desc:'4초마다 무작위 생물 5마리 위로 유성이 떨어져 반경 50에 6P.'},
+  {id:'eye',name:'포식자의 눈',en:"DEVOURER'S EYE",desc:'포식자·프리즘 해파리·보스에게 주는 피해 +50%. 포식자 처치 시 등불 +10.'},
+  {id:'over',name:'과충전 코일',en:'OVERCHARGE COIL',desc:'클릭 펄스 10번째마다 반경 2배, 피해 3배로 터진다.'},
+  {id:'ward',name:'수호 산호',en:'WARD CORAL',desc:'등불이 받는 모든 피해 −30% (격노 포함).'}
+];
 const BUFFS=['bounty','overheat','rapids','purge'];
 const SHOP=[
   {id:'flame',name:'단련된 불꽃',desc:'펄스 피해 +8%'},
@@ -256,8 +275,8 @@ const SHOP=[
   {id:'reroll',name:'재선택',desc:'런당 리롤 +1'},
   {id:'eye',name:'감별안',desc:'기술 카드 등장 확률 +4%'}
 ];
-const SRC_NAME={click:'클릭 펄스',chain:'연쇄 발광',skill:'스킬',after:'잔광',firefly:'반딧불',spark:'유도 불씨',overflow:'넘치는 빛',spore:'발광 포자',depth:'폭뢰',beacon:'회전등',ember:'마지막 불씨',purge:'정화'};
-const SRC_COL={click:'#ffd98a',chain:'#5ef2ff',skill:'#9d7bff',after:'#ffe9a8',firefly:'#d8ff7a',spark:'#bff6ff',overflow:'#ffd98a',spore:'#7dffb0',depth:'#ff9d5c',beacon:'#eef6ff',ember:'#ffd98a',purge:'#ffe9a8'};
+const SRC_NAME={click:'클릭 펄스',chain:'연쇄 발광',skill:'스킬',after:'잔광',firefly:'반딧불',spark:'유도 불씨',overflow:'넘치는 빛',spore:'발광 포자',depth:'폭뢰',beacon:'회전등',ember:'마지막 불씨',purge:'정화',relic:'유물'};
+const SRC_COL={click:'#ffd98a',chain:'#5ef2ff',skill:'#9d7bff',after:'#ffe9a8',firefly:'#d8ff7a',spark:'#bff6ff',overflow:'#ffd98a',spore:'#7dffb0',depth:'#ff9d5c',beacon:'#eef6ff',ember:'#ffd98a',purge:'#ffe9a8',relic:'#f0b8ff'};
 const ROMAN=['','I','II','III'];
 const COL={gold:'#ffd98a',pale:'#ffe9a8',coral:'#ff5d73',teal:'#5ef2ff',white:'#ffffff',violet:'#9d7bff',green:'#7dffb0',orange:'#ff9d5c',elec:'#8fd3ff',fly:'#d8ff7a'};
 
@@ -359,7 +378,7 @@ function resetRun(title){
   run={title:!!title,time:0,clock:0,level:1,lumens:0,kills:0,noteIdx:0,noteT:0,
     lantern:lmax,lanternMax:lmax,lanternLag:lmax,
     stats:{bright:0,wide:0,flash:0,sear:0,strobe:0,absorb:0,amp:0,recharge:0,wick:0},
-    techs:{},syn:{},skills:[],fusion:null,rerolls:1+meta.up.reroll,
+    techs:{},syn:{},skills:[],fusion:null,relics:{},hungry:0,pulseN:0,starT:4,rerolls:1+meta.up.reroll,
     creatures:[],parts:[],rings:[],motes:[],nums:[],sparks:[],bolts:[],rays:[],beams:[],vortex:[],zones:[],flares:[],charges:[],bites:[],schools:[],fireflies:[],suns:[],
     sched:[],aoeQ:[],buffs:{bounty:0,overheat:0,rapids:0},
     pulseT:0,lastPulse:-9,pulseAnim:0,absorbPulse:0,lumFlash:0,
@@ -376,14 +395,14 @@ function resetRun(title){
 function schedule(d,fn){run.sched.push({at:run.clock+d,fn:fn,done:false});}
 function runSched(){const s=run.sched,n=s.length;let any=false;for(let i=0;i<n;i++){const e=s[i];if(!e.done&&e.at<=run.clock){e.done=true;any=true;e.fn();}}if(any)run.sched=run.sched.filter(e=>!e.done);}
 function tl(id){return run.techs[id]||0;}
-function calcP(){return fin(CONFIG.PULSE.dmg*(1+0.25*run.stats.bright)*(1+0.08*meta.up.flame)*(run.buffs.overheat>0?1.5:1),1);}
+function calcP(){return fin(CONFIG.PULSE.dmg*(1+0.25*run.stats.bright)*(1+0.08*meta.up.flame)*(run.buffs.overheat>0?1.5:1)*(run.relics.glass?CONFIG.RELIC.glassDmg:1)*(1+run.hungry),1);}
 function skillMul(){return 1+0.25*run.stats.amp;}
 function pulseR(){return CONFIG.PULSE.radius*(1+0.15*run.stats.wide);}
 function critCh(){return CONFIG.PULSE.crit+0.06*run.stats.flash;}
 function critMul(){return CONFIG.PULSE.critMul+0.4*run.stats.sear;}
 function pulseInt(){return Math.max(0.04,CONFIG.PULSE.interval*(1-0.1*run.stats.strobe));}
-function cdMul(){return Math.max(0.3,1-0.07*run.stats.recharge);}
-function lumMul(){return(1+0.12*run.stats.absorb)*(1+0.06*meta.up.absorb)*(run.buffs.bounty>0?2:1);}
+function cdMul(){return Math.max(0.3,1-0.07*run.stats.recharge)*(run.relics.chrono?CONFIG.RELIC.chronoCd:1);}
+function lumMul(){return(1+0.12*run.stats.absorb)*(1+0.06*meta.up.absorb)*(run.buffs.bounty>0?2:1)*(run.relics.gill?CONFIG.RELIC.gillLum:1);}
 function stDps(){return fin(calcP()*(1+Math.min(1,critCh())*(critMul()-1))/pulseInt(),1);}
 function dps30(){let s=0;for(let i=0;i<30;i++){const b=run.dmgLog[i];for(const k in b)s+=b[k];}return fin(s/clamp(run.time,3,30));}
 function logDmg(src,v){if(run.title)return;const b=run.dmgLog[run.dmgSec%30];b[src]=(b[src]||0)+fin(v);}
@@ -473,6 +492,7 @@ function damage(c,amt,src,e){
   if(tgt.isBoss&&(!tgt.active||tgt.dead))return false;
   if(src==='spark'&&run.syn.snipe&&(tgt.isBoss||tgt.sp===1||tgt.sp===2))amt*=T.snipeMul;
   if(src==='firefly'&&run.syn.carrier&&c.inf>0)amt*=T.carrierMul;
+  if(run.relics.eye&&(tgt.isBoss||tgt.sp===1||tgt.sp===2))amt*=CONFIG.RELIC.eyeMul;
   if(tgt.cap)amt=Math.min(amt,tgt.maxHp*tgt.cap);
   const real=Math.min(amt,tgt.hp);tgt.hp-=amt;tgt.flash=0.06;tgt.pop=0.12;logDmg(src,real);
   if(e&&e.x!==undefined&&!tgt.isBoss&&!c.sp){const dx=c.x-e.x,dy=c.y-e.y,l=Math.hypot(dx,dy)||1;c.ix+=dx/l*CONFIG.PULSE.knock;c.iy+=dy/l*CONFIG.PULSE.knock;}
@@ -484,7 +504,7 @@ function kill(c,src,e){
   c.dead=true;
   burst(c.x,c.y,c.color,rint(6,10),70+c.r*6,0.4,2);ring(c.x,c.y,c.r*0.6,c.r*2.4+6,0.28,c.color,1.2,{a:0.7});
   if(run.title){spawnMote(c.x,c.y,0,c.color);return;}
-  run.kills++;
+  run.kills++;if(run.relics.hungry)run.hungry=Math.min(CONFIG.RELIC.hungryMax,run.hungry+CONFIG.RELIC.hungryPer);
   const lum=c.lumAbs>0?c.lumAbs:c.lum*lumMul();if(lum>0)spawnMote(c.x,c.y,lum,c.color);
   if(c.type==='spore')for(let i=0;i<3;i++){const a=rnd(TAU),p=mk('plankton',c.x,c.y,{fade:0.2});if(p){p.ix=Math.cos(a)*110;p.iy=Math.sin(a)*110;}}
   const cl=tl('chain');
@@ -515,9 +535,12 @@ function spreadSpore(c){const near=[];inCircle(c.x,c.y,T.sporeR,(o,dx,dy)=>{if(o
   for(let i=0;i<Math.min(2,near.length);i++){const o=near[i].o;infect(o);run.rays.push({x1:c.x,y1:c.y,x2:o.x,y2:o.y,t:0.15,max:0.15,col:COL.green,dead:false});}}
 
 /* ============ 10. 펄스 / 빛 알갱이 / 레벨업 ============ */
-function firePulse(x,y,mul,after){const P=calcP(),r=pulseR(),crit=!after&&Math.random()<critCh(),d=P*(crit?critMul():1)*(mul||1),vr=r*(crit?1.4:1);
+function firePulse(x,y,mul,after){const RL=CONFIG.RELIC,P=calcP(),crit=!after&&Math.random()<critCh();let r=pulseR(),d=P*(crit?critMul():1)*(mul||1);
+  const oc=!after&&!run.title&&run.relics.over&&(++run.pulseN%RL.overN===0);if(oc){r*=RL.overR;d*=RL.overDmg;}const vr=r*(crit?1.4:1);
   if(after){ring(x,y,r*0.35,r,0.32,COL.pale,1.5,{dash:[4,5],a:0.8});aoe(x,y,r,d,'after',null);return;}
   run.lastPulse=run.clock;run.pulseAnim=1;sfx(crit?'crit':'pulse');
+  if(oc){ring(x,y,r*0.3,r*1.12,0.35,COL.elec,3,{a:1});shake(0.12);}
+  if(run.relics.twin&&!run.title){const tx=W-x,ty=H-y;ring(tx,ty,r*0.2,r,0.22,'#c9b8ff',1.5,{a:0.8});aoe(tx,ty,r,d*RL.twinMul,'relic',null);}
   part(x,y,0,0,0.08,COL.white,7,0,0);
   ring(x,y,r*0.2,vr,0.22,COL.pale,2,{a:1});ring(x,y,r*0.1,vr*0.92,0.36,COL.gold,5,{a:0.2});
   if(crit)ring(x,y,r*0.3,vr*1.14,0.28,'#fff3c4',1.5,{a:0.9});
@@ -543,11 +566,11 @@ function updMotes(dt){const ms=run.motes,lx=S.mx,ly=S.my;
 function absorb(m){run.absorbPulse=1;run.noteT=1.2;sfx('mote',run.noteIdx);run.noteIdx=run.noteIdx>=14?10:run.noteIdx+1;gainLumens(m.val);}
 function gainLumens(v){if(run.title||run.ended||run.dying>=0||!(v>0))return;run.lumens=fin(run.lumens+v);let guard=0;
   while(run.lumens>=need(run.level)&&guard++<20){run.lumens-=need(run.level);run.level++;run.lastLevelAt=run.time;
-    run.lantern=Math.min(run.lanternMax,run.lantern+CONFIG.LANTERN.levelHeal);run.lumFlash=0.25;
+    run.lantern=Math.min(run.lanternMax,run.lantern+CONFIG.LANTERN.levelHeal+(run.relics.heart?CONFIG.RELIC.heartHeal:0));run.lumFlash=0.25;
     ring(S.mx,S.my,10,180,0.5,COL.gold,2.5,{a:1});sfx('level');
     queueCard(run.level===CONFIG.LEVEL.skill2&&run.skills.length<2?'skill2':'level');}}
 function queueCard(kind){if(run.ended||run.dying>=0)return;run.cardQ.push(kind);if(run.cardDelay<0)run.cardDelay=CONFIG.LEVEL.slow;}
-function hurt(n){if(run.title||run.ended||run.dying>=0)return;run.lantern-=n;run.hurtFx=1;shake(0.45);sfx('hurt');checkLantern();}
+function hurt(n){if(run.title||run.ended||run.dying>=0)return;if(run.relics.ward)n*=CONFIG.RELIC.ward;run.lantern-=n;run.hurtFx=1;shake(0.45);sfx('hurt');checkLantern();}
 function checkLantern(){if(run.lantern>0)return;const L=CONFIG.LANTERN;
   if(tl('ember')&&!run.emberUsed){run.emberUsed=true;run.lantern=run.lanternMax*L.ember;flash(0.3);shake(0.6);sfx('chord');
     ring(S.mx,S.my,20,Math.max(W,H),0.6,COL.gold,2.5,{a:1});ring(S.mx,S.my,10,Math.max(W,H)*0.7,0.6,COL.pale,1.5,{a:0.8,delay:0.08});
@@ -563,7 +586,7 @@ function devourerFail(c){c.dead=true;burst(c.x,c.y,COL.coral,24,160,0.6,2.5);rin
 function rewardMotes(x,y,total,col){const n=8;for(let i=0;i<n;i++)spawnMote(x+rnd(-14,14),y+rnd(-14,14),total/n,col,true);}
 function devourerKilled(c){const D=CONFIG.DEVOURER;run.hitstop=Math.max(run.hitstop,D.stop);shake(CONFIG.SHAKE.devourer);flash(0.2);sfx('chord');
   ring(c.x,c.y,c.r,220,0.6,COL.white,2.5,{a:1});ring(c.x,c.y,c.r,150,0.5,COL.gold,2,{a:0.9,delay:0.06});burst(c.x,c.y,COL.pale,40,260,0.7,2.5);
-  rewardMotes(c.x,c.y,ZONES[run.zone].lum*D.lum*lumMul(),COL.pale);queueCard('evolve');}
+  rewardMotes(c.x,c.y,ZONES[run.zone].lum*D.lum*lumMul(),COL.pale);if(run.relics.eye)run.lantern=Math.min(run.lanternMax,run.lantern+CONFIG.RELIC.eyeHeal);queueCard('evolve');}
 function spawnPrism(){const z=ZONES[run.zone],Pj=CONFIG.PRISMJ;mk('prismj',rnd(120,Math.max(121,W-120)),rnd(120,Math.max(121,H-140)),{ev:true,fade:0.6,tm:Pj.time,hp:z.hp*Pj.hp,t:rnd(Pj.dash[0],Pj.dash[1])});}
 function prismKilled(c){const Pj=CONFIG.PRISMJ;run.hitstop=Math.max(run.hitstop,Pj.stop);shake(0.35);sfx('chord');
   for(let i=0;i<6;i++)ring(c.x,c.y,c.r,90+i*26,0.55,HUES[i*2],1.8,{a:0.9,delay:i*0.05});
@@ -575,7 +598,7 @@ function clamKilled(c){const id=pick(BUFFS),Cl=CONFIG.CLAM;sfx('buff');ring(c.x,
   banner(BUFF_TXT[id][0],BUFF_TXT[id][1],1.6);
   if(id==='purge'){run.lantern=Math.min(run.lanternMax,run.lantern+Cl.purgeHeal);ring(S.mx,S.my,20,Math.max(W,H)*0.8,0.6,COL.pale,2,{a:0.8});
     const d=Cl.purgeDmg*calcP(),cs=run.creatures,n=cs.length;for(let i=0;i<n;i++){const o=cs[i];if(!o.dead&&!o.sp&&onScreen(o))damage(o,d,'purge',null);}}
-  else run.buffs[id]=Cl.buff;}
+  else run.buffs[id]=Cl.buff*(run.relics.gill?CONFIG.RELIC.gillBuff:1);}
 function spawnSchool(){const Sc=CONFIG.SCHOOL,z=ZONES[run.zone],dir=Math.random()<0.5?1:-1;const L={x:dir>0?-280:W+280,y:rnd(H*0.25,H*0.75),vx:dir*Sc.speed,ph:rnd(TAU),done:false};run.schools.push(L);
   for(let i=0;i<Sc.count;i++){const ox=rnd(-240,240),oy=rnd(-70,70)*(1-Math.abs(ox)/400);mk('plankton',L.x+ox,L.y+oy,{ev:true,lead:L,ox:ox,oy:oy,noEdge:true,lum:z.lum*Sc.lum});}
   banner('빛 무리 GLOW SCHOOL','플랑크톤 떼가 화면을 가로지른다',2);}
@@ -586,7 +609,7 @@ function spawnPace(){const Pc=CONFIG.PACE,z=ZONES[run.zone],cx=rnd(160,Math.max(
   for(let i=0;i<Pc.count;i++)mk('gold',cx+rnd(-110,110),cy+rnd(-80,80),{ev:true,life:25,hp:Math.max(0.5,z.hp*0.5),lumAbs:v,ang:a+rnd(-0.5,0.5)});}
 function timeline(dt){if(run.ended)return;const t=run.time,B=CONFIG.BOSS,E=CONFIG.EVENT,ev=run.ev;
   let z=0;for(let i=0;i<ZONES.length;i++)if(t>=ZONES[i].t)z=i;
-  if(z!==run.zone){run.prevZone=run.zone;run.zone=z;run.zoneT=0;banner(ZONES[z].name+' '+ZONES[z].en,'-'+fmt(t*CONFIG.DEPTH_RATE)+' m',1.8);sfx('zone');audioZone(z);}
+  if(z!==run.zone){run.prevZone=run.zone;run.zone=z;run.zoneT=0;banner(ZONES[z].name+' '+ZONES[z].en,'-'+fmt(t*CONFIG.DEPTH_RATE)+' m',1.8);sfx('zone');audioZone(z);queueCard('relic');}
   if(t>=ev.clam){ev.clam=t+rnd(E.clam[1],E.clam[2]);spawnClam();}
   if(!run.boss){
     if(t>=ev.dev){ev.dev=t+rnd(E.dev[1],E.dev[2]);spawnDevourer();}
@@ -609,6 +632,9 @@ function densest(n){const cs=run.creatures,cand=[];if(cs.length){const tries=Mat
   cand.sort((a,b)=>b.k-a.k);const out=[];for(let i=0;i<cand.length&&out.length<n;i++){const s=cand[i];if(out.every(o=>Math.hypot(o.x-s.x,o.y-s.y)>80))out.push(s);}return out;}
 function spawnSpark(x,y){if(run.sparks.length>=CONFIG.CAP.sparks)return;const a=rnd(TAU);run.sparks.push({x:x,y:y,vx:Math.cos(a)*220,vy:Math.sin(a)*220,life:T.sparkLife,tgt:null,rt:0,trail:[],dead:false});}
 function updTechs(dt){const P=calcP(),lx=S.mx,ly=S.my;
+  if(run.relics.star){run.starT-=dt;if(run.starT<=0){const RL=CONFIG.RELIC;run.starT=RL.starCd;const pool=run.creatures.filter(c=>!c.dead&&onScreen(c));if(bossUp())pool.push(run.boss.lure);
+    for(let i=0;i<RL.starN&&pool.length;i++){const t=pool.splice(Math.floor(Math.random()*pool.length),1)[0],x=t.x,y=t.y;ring(x,y,RL.starR,6,0.35,RELIC_COL,1.2,{a:0.8});
+      schedule(0.35,()=>{part(x,y,0,0,0.1,COL.white,10,0,0);ring(x,y,6,RL.starR,0.3,RELIC_COL,2,{a:1});burst(x,y,RELIC_COL,10,160,0.4,2);aoe(x,y,RL.starR,RL.starDmg*calcP(),'relic',null);});}}}
   const ff=run.fireflies,fn=ff.length;
   for(let i=0;i<fn;i++){const f=ff[i],a=run.clock*1.7+i*TAU/fn;f.x=lx+Math.cos(a)*T.fireOrbit+Math.sin(run.clock*9+i*2)*2;f.y=ly+Math.sin(a)*T.fireOrbit+Math.cos(run.clock*11+i)*2;f.t-=dt;
     if(f.t<=0){const tg=findTarget(f.x,f.y,'near',T.fireRange,null);
@@ -640,7 +666,8 @@ function updTechs(dt){const P=calcP(),lx=S.mx,ly=S.my;
 /* ============ 13. 스킬 4종 ============ */
 function skillDmg(coef){return coef*calcP()*skillMul();}
 function castSkill(key){if(S.state!=='PLAYING'||run.ended||run.dying>=0)return;const s=run.skills.find(k=>k.key===key);if(!s||s.cd>0)return;
-  s.cd=s.max=CONFIG.SKILL[s.id].cd*cdMul();SKILL_CAST[s.id](s,S.mx,S.my);}
+  s.cd=s.max=CONFIG.SKILL[s.id].cd*cdMul();SKILL_CAST[s.id](s,S.mx,S.my);
+  if(run.relics.echo&&Math.random()<CONFIG.RELIC.echoChance){s.cd=0;s.blink=0.5;sfx('ready');ring(S.mx,S.my,10,70,0.4,RELIC_COL,2,{a:1});}}
 function flareBoom(x,y,r,sc){sfx('flare');shake(CONFIG.SHAKE.skill*sc);flash(0.12*sc);part(x,y,0,0,0.1,COL.white,16*sc,0,0);
   for(let i=0;i<3;i++)ring(x,y,r*0.15,r*(1-i*0.14),0.36+i*0.08,i?SKILLS.flare.color:COL.white,2.5-i*0.5,{a:1-i*0.2,delay:i*0.05});
   burst(x,y,SKILLS.flare.color,Math.round(26*sc),r*2.2,0.9,2,-90);}
@@ -748,7 +775,7 @@ function updBoss(dt){const b=run.boss;if(!b)return;const B=CONFIG.BOSS;b.t+=dt;i
   b.sumT-=dt;if(b.sumT<=0){b.sumT=B.summonEvery;for(let i=0;i<B.summonN;i++){const a=i/B.summonN*TAU;mk('darter',b.x+Math.cos(a)*(B.rx+10),b.y+Math.sin(a)*(B.ry+10),{ang:a,fade:0.3});}
     ring(b.x,b.y,B.rx*0.8,B.rx*1.6,0.5,CREATURES.darter.color,2,{a:0.8});}
   if(b.t-B.rise>=B.enrageAt){if(!b.enr){b.enr=true;banner('격노 ENRAGE','등불이 타들어 간다',2);sfx('roar');}
-    if(!run.ended&&run.dying<0){run.lantern-=CONFIG.LANTERN.enrage*dt;checkLantern();}}
+    if(!run.ended&&run.dying<0){run.lantern-=CONFIG.LANTERN.enrage*dt*(run.relics.ward?CONFIG.RELIC.ward:1);checkLantern();}}
 }
 function bossDie(){const b=run.boss,B=CONFIG.BOSS;b.dead=true;b.hp=0;run.ended=true;run.cleared=true;run.ending=0;run.hitstop=B.stop;run.cardQ.length=0;run.cardDelay=-1;
   for(let i=0;i<run.bites.length;i++)run.bites[i].dead=true;shake(1);flash(CONFIG.FLASH.boss,CONFIG.FLASH.boss);sfx('roar');}
@@ -779,17 +806,19 @@ function rollLevel(techOnly){const L=CONFIG.LEVEL;
     if(useT)out.push(techOpt(techs.pop()));else if(stats.length)out.push(statOpt(stats.pop(),false));}
   if(out.length<3){const used=out.map(o=>o.name),p=shuffle(STATS.filter(d=>used.indexOf(d.name)<0));while(out.length<3&&p.length)out.push(statOpt(p.pop(),true));}
   return out;}
+function relicOpt(r){return{cls:'relic',tag:'유물 RELIC',name:r.name,en:r.en,desc:r.desc,delta:'이번 잠수 동안 유지',color:RELIC_COL,apply(){run.relics[r.id]=true;if(r.on)r.on();schedule(0.05,()=>{for(let i=0;i<3;i++)ring(S.mx,S.my,12,100+i*45,0.55,i%2?COL.white:RELIC_COL,2,{delay:i*0.07,a:1});sfx('chord');});}};}
 function rollCards(kind){const keys=Object.keys(SKILLS);
+  if(kind==='relic')return shuffle(RELICS.filter(r=>!run.relics[r.id])).slice(0,3).map(relicOpt);
   if(kind==='skill1')return shuffle(keys).slice(0,3).map(id=>skillOpt(id,'E'));
   if(kind==='skill2')return shuffle(keys.filter(id=>!run.skills.some(s=>s.id===id))).slice(0,3).map(id=>skillOpt(id,'Q'));
   if(kind==='evolve'){const ev=run.skills.filter(s=>s.evo<3).map(evoOpt);return ev.length?ev:rollLevel(true);}
   return rollLevel(kind==='prism');}
-const CARD_TITLE={level:'레벨 업',evolve:'스킬 진화',prism:'프리즘 보상',skill1:'스킬 선택',skill2:'스킬 선택'};
+const CARD_TITLE={level:'레벨 업',evolve:'스킬 진화',prism:'프리즘 보상',relic:'유물 선택',skill1:'스킬 선택',skill2:'스킬 선택'};
 function openCard(kind){if(kind==='skill2'&&run.skills.length>=2)kind='level';const opts=rollCards(kind);
   if(!opts.length){nextCard();return;}
   S.cardKind=kind;S.cardOpts=opts;S.down=false;S.click=false;setState(kind==='skill1'?'SKILL_PICK':'CARD');renderCards();}
 function renderCards(){const k=S.cardKind,row=$('cRow');$('cTitle').textContent=CARD_TITLE[k];
-  $('cSub').textContent=k==='level'?'LV '+run.level+' — 카드 한 장을 고르세요':k==='skill1'?'첫 번째 스킬 — E 슬롯에 장착':k==='skill2'?'두 번째 스킬 — Q 슬롯에 장착':k==='evolve'?'포식자 처치 보상':'기술 카드 한 장';
+  $('cSub').textContent=k==='level'?'LV '+run.level+' — 카드 한 장을 고르세요':k==='skill1'?'첫 번째 스킬 — E 슬롯에 장착':k==='skill2'?'두 번째 스킬 — Q 슬롯에 장착':k==='evolve'?'포식자 처치 보상':k==='relic'?ZONES[run.zone].name+' 진입 — 유물 하나를 고르세요':'기술 카드 한 장';
   row.innerHTML='';
   S.cardOpts.forEach((o,i)=>{const el=document.createElement('div');el.className='card ui '+o.cls;el.style.animationDelay=(i*CONFIG.CARD_STAGGER)+'ms';if(o.color)el.style.setProperty('--cc',o.color);
     el.innerHTML='<div class="tag">'+o.tag+'</div><div class="kn num">'+(i+1)+'</div><div class="nm">'+o.name+'</div><div class="en">'+o.en+'</div><div class="ds">'+o.desc+'</div><div class="dl num">'+o.delta+'</div>';
@@ -814,6 +843,7 @@ function renderPause(){let h='<h2>일시정지</h2><h3>스킬 SKILLS</h3>';
   run.skills.forEach(s=>{const d=SKILLS[s.id];h+=prow('['+s.key+'] '+d.name+' '+d.en,s.evo?ROMAN[s.evo]+' · '+d.evo.slice(0,s.evo).map(e=>e.name).join(', '):'기본');});
   if(run.fusion){const d=FUSIONS[run.fusion.id];h+=prow('[T] '+d.name+' '+d.en,d.desc);}else if(run.skills.length===2)h+=prow('[T] 융합 스킬','두 스킬 모두 진화 III에서 해금');
   h+='<h3>기술 TECHNIQUES</h3>';const ts=TECHS.filter(d=>tl(d.id)>0);h+=ts.length?ts.map(d=>prow(d.name+' '+d.en,'LV '+tl(d.id)+' · '+d.v(tl(d.id)))).join(''):prow('없음','—');
+  h+='<h3>유물 RELICS</h3>';const rl=RELICS.filter(r=>run.relics[r.id]);h+=rl.length?rl.map(r=>prow(r.name+' '+r.en,r.desc)).join(''):prow('없음','구역이 바뀔 때 획득');
   h+='<h3>시너지 SYNERGY</h3>';const sy=SYNERGY.filter(s=>run.syn[s.id]);h+=sy.length?sy.map(s=>prow(s.name+' '+s.en,s.desc)).join(''):prow('없음','—');
   h+='<h3>스탯 STATS</h3><div class="grid2">'+STATS.map(d=>prow(d.name+' LV '+(Math.round(run.stats[d.id]*10)/10),d.show(run.stats[d.id]))).join('')+'</div>';
   const sum={};let tot=0;run.dmgLog.forEach(b=>{for(const k in b){sum[k]=(sum[k]||0)+b[k];tot+=b[k];}});
@@ -830,6 +860,7 @@ function showResult(clear){const depth=run.time*CONFIG.DEPTH_RATE,Pe=CONFIG.PEAR
   h+='<div class="grid2"><div class="row"><span>도달 깊이</span>'+cu(depth,'m')+'</div><div class="row"><span>처치 수</span>'+cu(run.kills,'i')+'</div><div class="row"><span>레벨</span>'+cu(run.level,'i')+'</div><div class="row"><span>플레이 시간</span>'+cu(run.time,'t')+'</div><div class="row"><span>보유 진주</span>'+cu(meta.pearls,'i')+'</div></div>';
   h+='<h3>스킬 SKILLS</h3>'+(run.skills.length?run.skills.map(s=>prow(SKILLS[s.id].name+' '+SKILLS[s.id].en,s.evo?'진화 '+ROMAN[s.evo]:'기본')).join(''):prow('없음','—'))+(run.fusion?prow(FUSIONS[run.fusion.id].name+' '+FUSIONS[run.fusion.id].en,'융합 T'):'');
   const ts=TECHS.filter(d=>tl(d.id)>0);h+='<h3>기술 TECHNIQUES</h3><div style="font-size:13px;line-height:1.7;color:#c6d6e6">'+(ts.length?ts.map(d=>d.name+' LV '+tl(d.id)).join(' · '):'없음')+'</div>';
+  const rl=RELICS.filter(r=>run.relics[r.id]);h+='<h3>유물 RELICS</h3><div style="font-size:13px;line-height:1.7;color:#f0b8ff">'+(rl.length?rl.map(r=>r.name).join(' · '):'없음')+'</div>';
   h+='<div id="rPearl">획득 진주 +'+cu(pearls,'i')+'</div><div class="ctr"><button class="btn pri" data-a="dive">다시 잠수</button><button class="btn" data-a="shop">진주 상점</button></div>';
   $('rPanel').innerHTML=h;S.resAt=S.rt;S.resDone=false;audioLow(false);setState('RESULT');}
 function uiTick(){if(S.state!=='RESULT'||S.resDone)return;const t=eOC((S.rt-S.resAt)/0.8);if(t>=1)S.resDone=true;
@@ -851,6 +882,7 @@ function buildSkillHud(){const box=$('hSkills');box.innerHTML='';
 function hudUpdate(rdt){const st=S.state;if(st==='TITLE'||st==='RESULT'||st==='SHOP')return;const k=Math.min(1,rdt*10),B=CONFIG.BOSS;
   HD.depth+=(run.time*CONFIG.DEPTH_RATE-HD.depth)*k;HD.kills+=(run.kills-HD.kills)*k;if(run.kills-HD.kills<0.5)HD.kills=run.kills;
   setT($('hDepth'),'-'+fmt(HD.depth)+' m');setT($('hZone'),ZONES[run.zone].name+' '+ZONES[run.zone].en);setT($('hKills'),'처치 '+fmt(HD.kills));
+  setT($('hRelics'),RELICS.filter(r=>run.relics[r.id]).map(r=>'◆ '+r.name).join('  '));
   setT($('hLv'),'LV '+run.level);const lf=clamp(fin(run.lumens/need(run.level)),0,1);HD.lum=lf<HD.lum-0.25?lf:HD.lum+(lf-HD.lum)*Math.min(1,rdt*14);setW($('hLumFill'),HD.lum);
   $('hLumBar').classList.toggle('fl',run.lumFlash>0);
   setW($('hLanFill'),run.lantern/run.lanternMax);setW($('hLanLag'),run.lanternLag/run.lanternMax);setT($('hLanTxt'),Math.max(0,Math.ceil(fin(run.lantern)))+' / '+Math.round(run.lanternMax));
@@ -997,6 +1029,7 @@ function drawLantern(){const c=ctx,lx=S.mx,ly=S.my,tr=run.trail,m=tr.length;c.gl
   for(let k=0;k<m-2;k+=2){const u=k/m;c.globalAlpha=0.05+0.4*u;c.lineWidth=0.5+2.8*u;c.beginPath();c.moveTo(tr[k],tr[k+1]);c.lineTo(tr[k+2],tr[k+3]);c.stroke();}
   c.lineCap='butt';const br=1+0.06*Math.sin(S.rt*TAU*2),low=run.lantern/run.lanternMax;
   dg(COL.gold,lx,ly,32*br*(1+0.5*run.absorbPulse)*(0.75+0.25*clamp(low,0,1)),0.95);dg(COL.white,lx,ly,9,0.9);
+  if(run.relics.twin){dg('#c9b8ff',W-lx,H-ly,22*br,0.6);dg(COL.white,W-lx,H-ly,5,0.6);}
   c.globalCompositeOperation='source-over';c.globalAlpha=0.18;c.strokeStyle=COL.gold;c.lineWidth=1;c.beginPath();c.arc(lx,ly,pulseR()*(1-0.15*run.pulseAnim),0,TAU);c.stroke();
   c.globalAlpha=1;c.fillStyle=COL.gold;c.beginPath();c.arc(lx,ly,4,0,TAU);c.fill();c.fillStyle='#ffffff';c.beginPath();c.arc(lx,ly,1.8,0,TAU);c.fill();
   const sk=hudSkills();for(let i=0;i<sk.length;i++){const s=sk[i],fr=s.cd>0?1-clamp(s.cd/s.max,0,1):1,rr=s.fusion?21:15,sp=s.fusion?0.6:0.9,mid=s.fusion?-Math.PI/2:(s.key==='Q'?Math.PI:0);
