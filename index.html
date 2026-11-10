@@ -1036,7 +1036,8 @@ function frame(now){if(S.fatal)return;requestAnimationFrame(frame);
 }
 
 /* ============ 20. 입력 / 초기화 ============ */
-function resize(){W=Math.max(320,window.innerWidth);H=Math.max(240,window.innerHeight);DPR=Math.min(2,window.devicePixelRatio||1);cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);}
+function resize(){const ow=W,oh=H;W=Math.max(320,window.innerWidth);H=Math.max(240,window.innerHeight);
+  if(run&&ow>0&&oh>0&&(ow!==W||oh!==H)){const kx=W/ow,ky=H/oh,cs=run.creatures;for(let i=0;i<cs.length;i++){cs[i].x*=kx;cs[i].y*=ky;}for(let i=0;i<run.schools.length;i++){run.schools[i].x*=kx;run.schools[i].y*=ky;}}DPR=Math.min(2,window.devicePixelRatio||1);cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);}
 function init(){cv=$('cv');ctx=cv.getContext('2d');resize();S.mx=W/2;S.my=H*0.62;
   for(let i=0;i<80;i++)S.snow[0].push({x:Math.random(),y:Math.random(),s:rnd(1,1.6),v:rnd(8,16)});
   for(let i=0;i<36;i++)S.snow[1].push({x:Math.random(),y:Math.random(),s:rnd(1.6,2.8),v:rnd(22,40)});
